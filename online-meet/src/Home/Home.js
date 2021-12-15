@@ -6,16 +6,25 @@ import GoogleLogin from 'react-google-login';
 import { GoogleLogout } from 'react-google-login';
 import { useState } from 'react';
 import { Modal } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 function Home() {
     const [showLogin, setShowLogin] = useState(true);
     const [loggedin, setLoggedin] = useState(false);
     const [loggedout, setLoggedout] = useState(false);
+    let navigate = useNavigate();
+    const [host_email, setHost_email] = useState("");
+    const [host_fname, setHost_fname] = useState("");
+    const [host_lname, setHost_lname] = useState("");
 
     const login = (response) => {
         if (response.error !== 'popup_closed_by_user') {
             setShowLogin(false);
             setLoggedin(true);
+            setHost_email(response.profileObj.email);
+            setHost_fname(response.profileObj.givenName);
+            setHost_lname(response.profileObj.familyName);
         }
     }
 
@@ -35,6 +44,39 @@ function Home() {
 
     const closeLogoutModal = () => {
         setLoggedout(false);
+    }
+
+    const startMeet = () => {
+        var meet_code;
+        axios.get('http://localhost:8000/meet-details')
+        .then((results) => {    
+            do{
+                var codeExist = false;
+                meet_code = Math.floor(Math.random()*(99999999 - 10000000)) + 10000000;
+                for(var i=0; i<results.data.length; i++)
+                {
+                    if(results.data[i].meet_code===meet_code)
+                    {
+                        codeExist=true;
+                        break;
+                    }
+                }
+            }while(codeExist)
+        });
+        const meet = {
+            meet_code: meet_code,
+            host_email: host_email,
+            host_fname: host_fname,
+            host_lname: host_lname
+        }
+        axios.post('http://localhost:8000/create-meet',meet)
+        .then(result => {
+            const url = "/meet/" + meet_code; 
+            navigate(url);
+        })
+        .catch(err => {
+            console.log(err);
+        })        
     }
 
     return (
@@ -82,7 +124,7 @@ function Home() {
                 <br></br>
                 {!showLogin ?
                     <div>
-                        <button className='btn btn-primary'>Start a meeting</button> &nbsp; or
+                        <button className='btn btn-primary' onClick={startMeet}>Start a meeting</button> &nbsp; or
                         <br></br>
                         <br></br>
                         <input className='form-control' style={{ width: "200px" }} placeholder='Enter a Code' />

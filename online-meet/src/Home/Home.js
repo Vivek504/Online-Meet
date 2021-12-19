@@ -4,144 +4,179 @@ import home from '../Images/Home.png';
 import { Link } from 'react-router-dom';
 import GoogleLogin from 'react-google-login';
 import { GoogleLogout } from 'react-google-login';
-import { useState } from 'react';
 import { Modal } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-function Home() {
-    const [showLogin, setShowLogin] = useState(true);
-    const [loggedin, setLoggedin] = useState(false);
-    const [loggedout, setLoggedout] = useState(false);
-    let navigate = useNavigate();
-    const [host_email, setHost_email] = useState("");
-    const [host_fname, setHost_fname] = useState("");
-    const [host_lname, setHost_lname] = useState("");
+class Home extends React.Component {
+    constructor() {
+        super();
+        this.state = {
+            loggedin: false,
+            loggedout: false,
+            host_email: "",
+            host_fname: "",
+            host_lname: "",
+            user_meet_code: "",
+            meet_exist: true,
+            isLoggedin: false
+        };
+    }
 
-    const login = (response) => {
+    login = (response) => {
         if (response.error !== 'popup_closed_by_user') {
-            setShowLogin(false);
-            setLoggedin(true);
-            setHost_email(response.profileObj.email);
-            setHost_fname(response.profileObj.givenName);
-            setHost_lname(response.profileObj.familyName);
+            sessionStorage.setItem("isLoggedin", true);
+            this.setState({loggedin : true , host_email : response.profileObj.email , host_fname : response.profileObj.givenName , host_lname : response.profileObj.familyName , isLoggedin : true});
         }
     }
 
-    const logout = (response) => {
-        setShowLogin(true);
-        setLoggedout(true);
+    logout = (response) => {
+        sessionStorage.setItem("isLoggedin", false);
+        this.setState({loggedout : true , isLoggedin : false});
     }
 
-    const signup = (e) => {
+    signup = (e) => {
         e.preventDefault();
         window.location.href = "https://accounts.google.com/signup/v2/webcreateaccount?hl=en&flowName=GlifWebSignIn&flowEntry=SignUp";
     }
 
-    const closeLoginModal = () => {
-        setLoggedin(false);
+    closeLoginModal = () => {
+        this.setState({loggedin : false});
     }
 
-    const closeLogoutModal = () => {
-        setLoggedout(false);
+    closeLogoutModal = () => {
+        this.setState({loggedout : false});
     }
 
-    const startMeet = () => {
+    startMeet = async (event) => {
+        event.preventDefault();
         var meet_code;
+        await axios.get('http://localhost:8000/meet-details')
+            .then((results) => {
+                do {
+                    var codeExist = false;
+                    meet_code = Math.random().toString(36).slice(2);
+                    for (var i = 0; i < results.data.length; i++) {
+                        if (results.data[i].meet_code === meet_code) {
+                            codeExist = true;
+                            break;
+                        }
+                    }
+                } while (codeExist)
+            });
+        const meet = {
+            meet_code: meet_code,
+            host_email: this.state.host_email,
+            host_fname: this.state.host_fname,
+            host_lname: this.state.host_lname
+        }
+        await axios.post('http://localhost:8000/create-meet', meet)
+            .then(result => {
+                const url = "/meet/" + meet_code;
+                let navigate = useNavigate();
+                navigate(url);
+            })
+            .catch(err => {
+                console.log(err);
+            })
+    }
+
+    joinMeet = (event) => {
+        event.preventDefault();
         axios.get('http://localhost:8000/meet-details')
-        .then((results) => {    
-            do{
-                var codeExist = false;
-                meet_code = Math.floor(Math.random()*(99999999 - 10000000)) + 10000000;
-                for(var i=0; i<results.data.length; i++)
-                {
-                    if(results.data[i].meet_code===meet_code)
-                    {
-                        codeExist=true;
+            .then(results => {
+                let isExist = false;
+                for (let i = 0; i < results.data.length; i++) {
+                    if (results.data[i].meet_code === this.user_meet_code) {
+                        isExist = true;
                         break;
                     }
                 }
-            }while(codeExist)
-        });
-        const meet = {
-            meet_code: meet_code,
-            host_email: host_email,
-            host_fname: host_fname,
-            host_lname: host_lname
-        }
-        axios.post('http://localhost:8000/create-meet',meet)
-        .then(result => {
-            const url = "/meet/" + meet_code; 
-            navigate(url);
-        })
-        .catch(err => {
-            console.log(err);
-        })        
-    }
-
-    return (
-        <>
-            <nav class="navbar navbar-expand-lg navbar-light bg-light">
-                <div class="container-fluid">
-                    <Link to="/" className="navbar-brand">Online Meet</Link>
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                            <li class="nav-item">
-                                {showLogin ? <GoogleLogin
-                                    clientId='186601439826-4ehd9k5b21qkpfli7os6mcfjpdmush0o.apps.googleusercontent.com'
-                                    buttonText='Login'
-                                    onSuccess={login}
-                                    onFailure={login}
-                                    cookiePolicy={'single_host_origin'}
-                                /> :
-                                    <GoogleLogout
-                                        clientId="186601439826-4ehd9k5b21qkpfli7os6mcfjpdmush0o.apps.googleusercontent.com"
-                                        buttonText="Logout"
-                                        onLogoutSuccess={logout}
-                                    />}
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </nav>
-            <Modal show={loggedin}>
-                <Modal.Header><h5 className='modal-title'>Online Meet</h5></Modal.Header>
-                <Modal.Body className='modal-body'>You are logged in successfully</Modal.Body>
-                <Modal.Footer className='modal-footer'><button onClick={closeLoginModal} className='btn btn-secondary'>Close</button></Modal.Footer>
-            </Modal>
-            <Modal show={loggedout}>
-                <Modal.Header><h5 className='modal-title'>Online Meet</h5></Modal.Header>
-                <Modal.Body className='modal-body'>You are logged out successfully</Modal.Body>
-                <Modal.Footer className='modal-footer'><button onClick={closeLogoutModal} className='btn btn-secondary'>Close</button></Modal.Footer>
-            </Modal>
-            <div className='title'>
-                <h1>Secure video conferencing </h1>
-                <h1>for everyone</h1>
-                <p>Connect, collaborate and celebrate from anywhere with Online Meet</p>
-                <br></br>
-                {!showLogin ?
-                    <div>
-                        <button className='btn btn-primary' onClick={startMeet}>Start a meeting</button> &nbsp; or
-                        <br></br>
-                        <br></br>
-                        <input className='form-control' style={{ width: "200px" }} placeholder='Enter a Code' />
-                        <button className='btn btn-secondary'>Join</button>
-                        <br></br><br></br>
-                    </div>
-                    :
-                    <div>
-                        Don't have an account? <Link onClick={signup} to="https://accounts.google.com/signup/v2/webcreateaccount?hl=en&flowName=GlifWebSignIn&flowEntry=SignUp" style={{ color: "blue", textDecoration: "none" }}>Create an account</Link>
-                    </div>
+                if (isExist === true) {
+                    this.setState({meet_exist : true});
+                    const url = "/meet/" + this.user_meet_code;
+                    let navigate = useNavigate();
+                    navigate(url);
                 }
-            </div>
-            <div className='image'>
-                <img src={home} alt='Meet'></img>
-            </div>
-        </>
-    );
+                else {
+                    this.setState({meet_exist : false});
+                }
+            })
+            .catch(err => {
+                console.log(err);
+            })
+    }
+    render() {
+        return (
+            <>
+                <nav class="navbar navbar-expand-lg navbar-light bg-light">
+                    <div class="container-fluid">
+                        <Link to="/" className="navbar-brand">Online Meet</Link>
+                        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                            <span class="navbar-toggler-icon"></span>
+                        </button>
+                        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                                <li class="nav-item">
+                                    {!this.state.isLoggedin ? <GoogleLogin
+                                        clientId='186601439826-4ehd9k5b21qkpfli7os6mcfjpdmush0o.apps.googleusercontent.com'
+                                        buttonText='Login'
+                                        onSuccess={this.login}
+                                        onFailure={this.login}
+                                        cookiePolicy={'single_host_origin'}
+                                    /> :
+                                        <GoogleLogout
+                                            clientId="186601439826-4ehd9k5b21qkpfli7os6mcfjpdmush0o.apps.googleusercontent.com"
+                                            buttonText="Logout"
+                                            onLogoutSuccess={this.logout}
+                                        />}
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </nav>
+                <Modal show={this.state.loggedin}>
+                    <Modal.Header><h5 className='modal-title'>Online Meet</h5></Modal.Header>
+                    <Modal.Body className='modal-body'>You are logged in successfully</Modal.Body>
+                    <Modal.Footer className='modal-footer'><button onClick={this.closeLoginModal} className='btn btn-secondary'>Close</button></Modal.Footer>
+                </Modal>
+                <Modal show={this.state.loggedout}>
+                    <Modal.Header><h5 className='modal-title'>Online Meet</h5></Modal.Header>
+                    <Modal.Body className='modal-body'>You are logged out successfully</Modal.Body>
+                    <Modal.Footer className='modal-footer'><button onClick={this.closeLogoutModal} className='btn btn-secondary'>Close</button></Modal.Footer>
+                </Modal>
+                <div className='title'>
+                    <h1>Secure video conferencing </h1>
+                    <h1>for everyone</h1>
+                    <p>Connect, collaborate and celebrate from anywhere with Online Meet</p>
+                    <br></br>
+                    {this.state.isLoggedin ?
+                        <div>
+                            <button className='btn btn-primary' onClick={this.startMeet}>Start a meeting</button> &nbsp; or
+                            <br></br>
+                            <br></br>
+                            <form onSubmit={this.joinMeet}>
+                                <input type="text" value={this.user_meet_code} onChange={(e) => this.setState({user_meet_code : e.target.value})} className='form-control' style={{ width: "200px" }} placeholder='Enter a Code' />
+                                <button className='btn btn-secondary' type="submit">Join</button>
+                            </form>
+                            {!this.state.meet_exist ?
+                                <label className="text-danger">Please enter a valid meet code.</label>
+                                : null
+                            }
+                            <br></br><br></br>
+                        </div>
+                        :
+                        <div>
+                            Don't have an account? <Link onClick={this.signup} to="https://accounts.google.com/signup/v2/webcreateaccount?hl=en&flowName=GlifWebSignIn&flowEntry=SignUp" style={{ color: "blue", textDecoration: "none" }}>Create an account</Link>
+                        </div>
+                    }
+                </div>
+                <div className='image'>
+                    <img src={home} alt='Meet'></img>
+                </div>
+            </>
+        );
+    }
 
 }
 

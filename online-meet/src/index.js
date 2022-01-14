@@ -8,6 +8,9 @@ ReactDOM.render(
   <React.StrictMode>
     <App />
   </React.StrictMode>,
+  // <ContextProvider>
+  //   <App />
+  // </ContextProvider>,
   document.getElementById('root')
 );
 

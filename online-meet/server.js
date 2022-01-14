@@ -1,14 +1,49 @@
-var express = require("express");
-var app = express();
+require("dotenv").config();
+const express = require("express");
+const http = require("http");
+const bodyParser = require("body-parser");
+const cors = require("cors");
 const port = process.env.PORT || 8000;
-app.use(express.urlencoded({ extended: true }))
-app.use(express.json())
+const app = express();
+const server = http.createServer(app);
+const Routes = require("./app/routes");
+const path = require('path');
 
-var cors = require('cors');
-app.use(cors());
+app.use([
+  cors(),
+  bodyParser.json(),
+  bodyParser.urlencoded({ extended: false }),
+  Routes,
+]);
+
+const io = (module.exports.io = require('socket.io')(server, {
+    cors: {
+        origin: '*',
+    }
+}));
+const socketManager = require("./app/socketManager");
+io.on("connection", socketManager);
+
+// var express = require("express");
+// var app = express();
+// const port = process.env.PORT || 8000;
+// app.use(express.urlencoded({ extended: true }))
+// app.use(express.json())
+
+// const server = require("http").createServer(app);
+
+// var cors = require('cors');
+// app.use(cors());
+
+// const io = (module.exports.io = require('socket.io')(server, {
+//   cors: {
+//     origin: '*',
+//   }
+// }));
 
 var mongoose = require("mongoose");
 const { stringify } = require("querystring");
+const req = require("express/lib/request");
 mongoose.Promise = global.Promise;
 mongoose.connect("mongodb://localhost:27017/meet_db", { useNewUrlParser: true, useUnifiedTopology: true });
 
@@ -24,6 +59,7 @@ function mongoConnected() {
     host_lname: String
   }, { collection: 'meets' });
   var Meet = mongoose.model("Meet", meetSchema);
+
   app.post("/create-meet", (req, res) => {
     Meet.create({
       meet_code: req.body.meet_code,
@@ -44,20 +80,8 @@ function mongoConnected() {
       }
     });
   });
-  // app.get("/find-meet", (req, res) => {
-  //   Meet.findOne({ meet_code: req.body.meet_code }, function (err, meet) {
-  //     if (err) {
-  //       console.log(err);
-  //       res.json({ message: "Do not able to fetch data" });
-  //     }
-  //     else {
-  //       console.log(meet);
-  //       res.send(meet);
-  //     }
-  //   });
-  // });
 }
-app.listen(port, function (err) {
+server.listen(port, function (err) {
   if (err)
     console.log("Error in server setup")
   else

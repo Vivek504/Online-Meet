@@ -5,8 +5,8 @@ import { Link } from 'react-router-dom';
 import GoogleLogin from 'react-google-login';
 import { GoogleLogout } from 'react-google-login';
 import { Modal } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { Navigate } from "react-router-dom";
 
 class Home extends React.Component {
     constructor() {
@@ -19,20 +19,22 @@ class Home extends React.Component {
             host_lname: "",
             user_meet_code: "",
             meet_exist: true,
-            isLoggedin: false
+            isLoggedin: sessionStorage.getItem("isLoggedin"),
+            redirect: null
         };
     }
 
     login = (response) => {
         if (response.error !== 'popup_closed_by_user') {
             sessionStorage.setItem("isLoggedin", true);
-            this.setState({loggedin : true , host_email : response.profileObj.email , host_fname : response.profileObj.givenName , host_lname : response.profileObj.familyName , isLoggedin : true});
+            sessionStorage.setItem("email",response.profileObj.email);
+            this.setState({ loggedin: true, host_email: response.profileObj.email, host_fname: response.profileObj.givenName, host_lname: response.profileObj.familyName, isLoggedin: true});
         }
     }
 
     logout = (response) => {
         sessionStorage.setItem("isLoggedin", false);
-        this.setState({loggedout : true , isLoggedin : false});
+        this.setState({ loggedout: true, isLoggedin: false});
     }
 
     signup = (e) => {
@@ -41,11 +43,11 @@ class Home extends React.Component {
     }
 
     closeLoginModal = () => {
-        this.setState({loggedin : false});
+        this.setState({ loggedin: false });
     }
 
     closeLogoutModal = () => {
-        this.setState({loggedout : false});
+        this.setState({ loggedout: false });
     }
 
     startMeet = async (event) => {
@@ -73,8 +75,7 @@ class Home extends React.Component {
         await axios.post('http://localhost:8000/create-meet', meet)
             .then(result => {
                 const url = "/meet/" + meet_code;
-                let navigate = useNavigate();
-                navigate(url);
+                this.setState({ redirect: url });
             })
             .catch(err => {
                 console.log(err);
@@ -87,19 +88,18 @@ class Home extends React.Component {
             .then(results => {
                 let isExist = false;
                 for (let i = 0; i < results.data.length; i++) {
-                    if (results.data[i].meet_code === this.user_meet_code) {
+                    if (results.data[i].meet_code === this.state.user_meet_code) {
                         isExist = true;
                         break;
                     }
                 }
                 if (isExist === true) {
-                    this.setState({meet_exist : true});
-                    const url = "/meet/" + this.user_meet_code;
-                    let navigate = useNavigate();
-                    navigate(url);
+                    this.setState({ meet_exist: true });
+                    const url = "/meet/" + this.state.user_meet_code;
+                    this.setState({ redirect: url });
                 }
                 else {
-                    this.setState({meet_exist : false});
+                    this.setState({ meet_exist: false });
                 }
             })
             .catch(err => {
@@ -107,18 +107,21 @@ class Home extends React.Component {
             })
     }
     render() {
+        if (this.state.redirect) {
+            return <Navigate to={this.state.redirect} />
+        }
         return (
             <>
-                <nav class="navbar navbar-expand-lg navbar-light bg-light">
-                    <div class="container-fluid">
+                <nav className="navbar navbar-expand-lg navbar-light bg-light">
+                    <div className="container-fluid">
                         <Link to="/" className="navbar-brand">Online Meet</Link>
-                        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                            <span class="navbar-toggler-icon"></span>
+                        <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                            <span className="navbar-toggler-icon"></span>
                         </button>
-                        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                                <li class="nav-item">
-                                    {!this.state.isLoggedin ? <GoogleLogin
+                        <div className="collapse navbar-collapse" id="navbarSupportedContent">
+                            <ul className="navbar-nav me-auto mb-2 mb-lg-0">
+                                <li className="nav-item">
+                                {!this.state.isLoggedin ? <GoogleLogin
                                         clientId='186601439826-4ehd9k5b21qkpfli7os6mcfjpdmush0o.apps.googleusercontent.com'
                                         buttonText='Login'
                                         onSuccess={this.login}
@@ -156,7 +159,7 @@ class Home extends React.Component {
                             <br></br>
                             <br></br>
                             <form onSubmit={this.joinMeet}>
-                                <input type="text" value={this.user_meet_code} onChange={(e) => this.setState({user_meet_code : e.target.value})} className='form-control' style={{ width: "200px" }} placeholder='Enter a Code' />
+                                <input type="text" value={this.state.user_meet_code} onChange={(e) => this.setState({ user_meet_code: e.target.value })} className='form-control' style={{ width: "200px" }} placeholder='Enter a Code' />
                                 <button className='btn btn-secondary' type="submit">Join</button>
                             </form>
                             {!this.state.meet_exist ?
